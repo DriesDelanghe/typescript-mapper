@@ -10,6 +10,10 @@ class TestMapper extends MapperAbstract<object, TestObject> {
     constructor() { super(Object, TestObject) }
 }
 
+class TestObject2 {
+    constructor(public title: string, public keys: string[]) { }
+}
+
 let sut: any;
 const mockObject: any = { title: "me", values: ['myself', 'I'] };
 const mockClassObject = new TestObject("me", ["myself", "I"], new TestObject("you", ["yourself"]), "available");
@@ -236,5 +240,33 @@ describe("AbstractMapper mapToDestination with keyless conditions", () => {
         expect(result).toHaveProperty("optionalValue", "updated");
         expect(result).toHaveProperty("otherObject.title", "you");
         expect(result).toHaveProperty("otherObject.values", ["yourself"]);
+    })
+})
+
+class TestObjectMapper extends MapperAbstract<TestObject, TestObject2> {
+    constructor() {
+        super(TestObject, TestObject2,
+            [
+                new MappingCondition(new MappingTransformation(undefined, (value: TestObject): TestObject2 => ({ ...value, keys: value.values }),
+                    (value: any) => ({ ...value, values: value.keys }))),
+            ]
+        )
+    }
+}
+
+describe("Map class to other class", () => {
+    beforeEach(() => {
+        sut = new TestObjectMapper();
+    })
+    it("maps properly to source", () => {
+        var result = sut.mapToSource(new TestObject("title", ["me", "myself"]))
+        expect(result).toHaveProperty("keys")
+        expect(result).toHaveProperty("keys", ["me", "myself"])
+    })
+    it("maps to destination properly", () => {
+        var result = sut.mapToDestination(new TestObject2("title", ["me", "myself"]))
+        expect(result).toHaveProperty("values")
+        expect(result).toHaveProperty("values", ["me", "myself"])
+
     })
 })

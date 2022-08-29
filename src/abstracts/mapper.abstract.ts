@@ -1,14 +1,15 @@
-import { transform } from "typescript";
 import { MappingCondition } from "../models/mapping-condition"
 
-//T = source class
-//U = destination class
 enum MappingDirection {
     SOURCE,
     DESTINATION
 }
-
-
+/**
+ * @param T source class
+ * @param U destination class
+ */
+//T = source class
+//U = destination class
 export abstract class MapperAbstract<T extends object, U extends object> {
 
     private keylessConditions: MappingCondition[] = [];
@@ -51,37 +52,47 @@ export abstract class MapperAbstract<T extends object, U extends object> {
             return transformedData
         }
         let modifiedData = this.keylessConditions.reduce(
-            (resultObject, condition) => this.constructValue(resultObject, direction, condition, undefined, excludedKeys),
-            transformedData)
+            (resultObject, condition) => this.constructValue(resultObject, direction, condition),
+            data)
+
+        let result = { ...transformedData, ...modifiedData }
 
         excludedKeys?.forEach((key) => {
-            modifiedData = { ...modifiedData, [key]: null }
+            result = { ...result, [key]: null }
         });
-        return { ...modifiedData }
+        console.log(JSON.stringify(result, null, 2))
+        return { ...result }
 
     }
 
-    private constructConditionalValue(data: any, direction: MappingDirection, key?: string, excludedKeys?: string[]) {
+    private constructConditionalValue(data: any, direction: MappingDirection, key?: string, excludedKeys?: string[]): U | T | null {
         if (key != null && excludedKeys?.includes(key)) {
             return null;
         }
         const condition = this.keyfullConditions?.find((condition) => condition.key === key)
-        return this.constructValue(data, direction, condition, key, excludedKeys);
+        return this.constructValue(data, direction, condition, key);
     }
 
-    private constructValue(data: any, direction: MappingDirection, condition?: MappingCondition, key?: string, excludedKeys?: string[]) {
+    private constructValue(data: any, direction: MappingDirection, condition?: MappingCondition, key?: string) {
 
         if (condition != null && (!condition.condition || condition.condition(Object.assign({}, data)))) {
+            console.log("running transformation using conditional")
             if (condition.transformation.transformation != null) {
+                console.log("running basic transformation")
                 return condition.transformation.transformation(key != null ? data[key] : Object.assign({}, data))
             }
             if (direction === MappingDirection.SOURCE && condition.transformation.sourceTransformation != null) {
-                return condition.transformation.sourceTransformation(key != null ? data[key] : Object.assign({}, data))
+                console.log("executing source transformation")
+                const result = condition.transformation.sourceTransformation(key != null ? data[key] : Object.assign({}, data))
+                console.log("result", result)
+                return result
             }
             if (direction === MappingDirection.DESTINATION && condition.transformation.destinationTransformation != null) {
+                console.log("executing destination transformation")
                 return condition.transformation.destinationTransformation(key != null ? data[key] : Object.assign({}, data))
             }
         }
+        console.log("returning unmodified data")
         return key != null ? data[key] : data
     }
 }
